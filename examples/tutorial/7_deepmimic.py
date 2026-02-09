@@ -503,8 +503,17 @@ print(f"Observation keys from reset: {list(obs.keys())}")
 
 # Show how agent processes observations
 print("\n=== Agent Action Generation ===")
+
+from tensordict import TensorDict  # noqa: E402
+
 with torch.no_grad():  # No gradients needed for inference
-    agent_outs = agent.model(obs)
+
+    # * Convert to TensorDict to prevent error due to no batch_size.
+    obs_tensordict = TensorDict(
+        {key: torch.as_tensor(val) for key, val in obs.items()},
+        batch_size=[env.num_envs],
+    )
+    agent_outs = agent.model(obs_tensordict)
 
 print("Agent processed observations:")
 print(f"  - Input observation keys: {list(obs.keys())}")
