@@ -1,0 +1,2 @@
+Original URDF files downloaded from https://github.com/BoosterRobotics/booster_assets/tree/main/robots/K1
+To make random_pose_visualizer.py work, K1_22dof.xml and K1.usda have changes in link names, joint names, joint limits that are not reflected on these URDF files. 
