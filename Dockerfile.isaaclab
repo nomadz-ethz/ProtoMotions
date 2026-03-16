@@ -1,0 +1,16 @@
+# Isaac Lab base image
+FROM nvcr.io/nvidia/isaac-lab:2.3.2
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Copy ProtoMotions code into the container
+WORKDIR /workspace/protomotions
+COPY . /workspace/protomotions
+
+# Upgrade pip
+RUN /isaac-sim/python.sh -m pip install --upgrade pip
+# Install dependencies
+RUN /isaac-sim/python.sh -m pip install -r requirements_isaaclab.txt
+# Install ProtoMotions
+RUN /isaac-sim/python.sh -m pip install -e .

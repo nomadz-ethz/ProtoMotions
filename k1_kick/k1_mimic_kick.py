@@ -5,6 +5,8 @@ Adapted from Tutorial 7: DeepMimic Agent but with Booster K1 and kicking motion.
 import argparse
 
 parser = argparse.ArgumentParser()
+
+# Simulator selection and options
 parser.add_argument(
     "--simulator",
     type=str,
@@ -17,6 +19,33 @@ parser.add_argument(
     default=False,
     help="Use CPU only for simulation (experimental, GPU is default)",
 )
+parser.add_argument(
+    "--headless",
+    action="store_true",
+    default=False,
+    help="Run simulator in headless mode (no rendering, faster performance)",
+)
+
+# Training parameters
+parser.add_argument(
+    "--num-envs",
+    type=int,
+    default=32,
+    help="Number of parallel environments to run",
+)
+parser.add_argument(
+    "--epochs",
+    type=int,
+    default=30,
+    help="Number of training epochs",
+)
+parser.add_argument(
+    "--steps",
+    type=int,
+    default=32,
+    help="Number of steps per environment per update",
+)
+
 args = parser.parse_args()
 
 # Import simulator before torch - isaacgym/isaaclab must be imported before torch
@@ -72,7 +101,10 @@ print(f"Contact bodies: {robot_cfg.contact_bodies}")
 # Extra simulator parameters
 extra_simulator_params = {}
 if args.simulator == "isaaclab":
-    app_launcher_flags = {"headless": False, "device": str(device)}
+
+    app_launcher_flags = {"headless": args.headless, 
+                          "device": str(device),
+                          }
     app_launcher = AppLauncher(app_launcher_flags)
     simulation_app = app_launcher.app
     extra_simulator_params["simulation_app"] = simulation_app
@@ -81,8 +113,8 @@ if args.simulator == "isaaclab":
 simulator_cfg: SimulatorConfig = simulator_config(
     args.simulator,
     robot_cfg,
-    headless=False,
-    num_envs=256,
+    headless=args.headless,
+    num_envs=args.num_envs,
     experiment_name="k1_mimic_kick",
 )
 
@@ -373,9 +405,9 @@ agent_config = PPOAgentConfig(
             lr=1e-4,  # Learning rate for critic (higher than actor)
         ),
     ),
-    batch_size=256 * 32,  # envs * steps
-    training_max_steps=20 * 256 * 32,  # epochs * envs * steps
-    num_steps=32,  # Steps per rollout
+    batch_size=args.num_envs * args.steps,  # envs * steps
+    training_max_steps=args.epochs * args.num_envs * args.steps,  # epochs * envs * steps
+    num_steps=args.steps,  # Steps per rollout
     num_mini_epochs=4,  # Mini epochs per update
     gradient_clip_val=50.0,  # Gradient clipping for stability
     clip_critic_loss=True,  # Clip critic loss for stability
@@ -427,7 +459,7 @@ agent = PPO(
     fabric=fabric,
     env=env,
     config=agent_config,
-    root_dir=Path("./k1_mimic_kick_output"),  # Directory for saving checkpoints
+    root_dir=Path("/output/k1_mimic_kick_output"),  # Directory for saving checkpoints
 )
 agent.setup()
 
@@ -457,7 +489,7 @@ with torch.no_grad():  # No gradients needed for inference
     # * Convert to TensorDict to prevent error due to no batch_size.
     obs_tensordict = TensorDict(
         {key: torch.as_tensor(val) for key, val in obs.items()},
-        batch_size=[env.num_envs],
+        batch_size=[args.num_envs],
     )
     agent_outs = agent.model(obs_tensordict)
 
@@ -471,7 +503,7 @@ print(f"  - Values range: [{agent_outs['value'].min().item():.3f}, {agent_outs['
 
 # Run actual training using the agent's fit function
 print("\n=== Starting Agent Training ===")
-print("Running actual PPO training for 10000 epochs:")
+print(f"Running actual PPO training for {args.epochs} epochs:")
 print("  - Agent will learn to imitate the reference motion")
 print("  - Training progress will be displayed")
 print("  - You can watch the robot improve over time")
